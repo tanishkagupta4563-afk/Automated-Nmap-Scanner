@@ -1,0 +1,128 @@
+#!/bin/bash   
+
+# ===============================   
+# Automated Nmap Scanner  
+# ===============================   
+
+# Default values   
+TARGET=""   
+SCAN_TYPE=""   
+EXTRA_FLAGS=""   
+OUTPUT_FILE="nmap_results.txt"   
+
+# -------------------------------   
+# 1. Check Nmap   
+# -------------------------------   
+if ! command -v nmap &> /dev/null; then   
+    echo "[ERROR] Nmap not found. Install it first."   
+    exit 1   
+fi   
+
+# -------------------------------   
+# 2. Help Menu   
+# -------------------------------   
+show_help() {   
+    echo "Usage: $0 -t <target> -s <scan_type> [options]"   
+    echo ""   
+    echo "Scan Types:"   
+    echo " 1 = Host Discovery (-sn)"   
+    echo " 2 = TCP SYN Scan (-sS)"   
+    echo " 3 = UDP Scan (-sU)"   
+    echo " 4 = Version Detection (-sV)"   
+    echo " 5 = OS Detection (-O)"   
+    echo " 6 = All Scans"   
+    echo ""   
+    echo "Options:"   
+    echo " -t target"   
+    echo " -s scan type"   
+    echo " -f \"extra flags\" (optional)"   
+    echo " -h help"   
+}   
+
+# -------------------------------   
+# 3. Argument Parsing   
+# -------------------------------   
+while getopts "t:s:f:h" opt; do   
+    case $opt in   
+        t) TARGET="$OPTARG" ;;   
+        s) SCAN_TYPE="$OPTARG" ;;   
+        f) EXTRA_FLAGS="$OPTARG" ;;   
+        h) show_help; exit 0 ;;   
+        *) echo "[ERROR] Invalid option"; exit 1 ;;   
+    esac   
+done   
+
+# -------------------------------   
+# 4. Menu fallback   
+# -------------------------------   
+if [[ -z "$TARGET" ]]; then   
+    read -p "Enter target IP / domain: " TARGET   
+fi   
+
+if [[ -z "$SCAN_TYPE" ]]; then   
+    echo "==============================="   
+    echo "1. Host Discovery"   
+    echo "2. TCP SYN Scan"   
+    echo "3. UDP Scan"   
+    echo "4. Version Detection"   
+    echo "5. OS Detection"   
+    echo "6. All Scans"   
+    echo "==============================="   
+    read -p "Choose scan type (1-6): " SCAN_TYPE   
+fi   
+
+if [[ -z "$TARGET" ]]; then   
+    echo "[ERROR] Target is required"   
+    exit 1   
+fi   
+
+# -------------------------------   
+# 5. Scan Function   
+# -------------------------------   
+run_scan() {   
+    local TYPE=$1   
+    local CMD=""   
+
+    case $TYPE in   
+        1) CMD="nmap -sn $TARGET $EXTRA_FLAGS" ;;   
+        2) CMD="nmap -sS $TARGET $EXTRA_FLAGS" ;;   
+        3) CMD="nmap -sU $TARGET $EXTRA_FLAGS" ;;   
+        4) CMD="nmap -sV $TARGET $EXTRA_FLAGS" ;;   
+        5) CMD="nmap -O $TARGET $EXTRA_FLAGS" ;;   
+        *) echo "[ERROR] Invalid scan type"; return ;;   
+    esac   
+
+    echo ""   
+    echo "[INFO] Running: $CMD"   
+    echo "---------------------------------" | tee -a "$OUTPUT_FILE"   
+    echo "[SCAN TYPE $TYPE]" | tee -a "$OUTPUT_FILE"   
+
+    $CMD -oN - | tee -a "$OUTPUT_FILE"   
+}   
+
+# -------------------------------   
+# 6. Execute Scan   
+# -------------------------------   
+
+echo "[INFO] Target: $TARGET"   
+echo "[INFO] Output File: $OUTPUT_FILE"   
+echo ""   
+
+if [[ "$SCAN_TYPE" == "6" ]]; then   
+    for i in {1..5}; do   
+        run_scan $i   
+    done   
+else   
+    run_scan $SCAN_TYPE   
+fi   
+
+# -------------------------------   
+# 7. Summary   
+# -------------------------------   
+
+echo ""   
+echo "========= SCAN SUMMARY ========="   
+grep -E "Nmap scan report|open|filtered|closed" "$OUTPUT_FILE" | sort | uniq   
+
+echo ""   
+echo "[DONE] Scan completed. Results saved in $OUTPUT_FILE"   
