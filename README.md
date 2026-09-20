@@ -1,1 +1,1 @@
-# -Automated-Nmap-Scanner-
+# Automated Nmap Scanner
